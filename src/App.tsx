@@ -337,52 +337,48 @@ export default function App() {
                         )}
                       >
                         <div 
-                          className="p-4 flex items-start justify-between cursor-pointer active:bg-white/5 transition-colors gap-3"
+                          className="p-4 flex items-start justify-between cursor-pointer active:bg-white/5 transition-colors gap-4"
                           onClick={() => setExpandedId(isExpanded ? null : item.id)}
                         >
-                           <div className="flex-1 min-w-0">
-                              <div className="flex flex-wrap items-center gap-2 mb-2">
-                                 <span className="text-[10px] font-mono text-[#00e5ff] bg-[#00e5ff12] border border-[#00e5ff33] px-2 py-0.5 rounded shrink-0">
-                                   {item.stockCode || '---'} {item.stockName}
-                                 </span>
-                                 <span className={cn(
-                                   "text-xs font-bold shrink-0",
-                                   item.verdictType === 'buy' ? "text-[#00e676]" : item.verdictType === 'sell' ? "text-[#ff5252]" : "text-[#ffd740]"
-                                 )}>
-                                   {item.verdict}
-                                 </span>
+                           <div className="flex-1 min-w-0 space-y-2">
+                              {/* Row 1: Stock info */}
+                              <div className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono text-[#00e5ff] bg-[#00e5ff12] border border-[#00e5ff33] w-fit">
+                                {item.stockCode || '---'} {item.stockName}
                               </div>
                               
-                              <AnimatePresence mode="wait">
-                                {!isExpanded && (
-                                  <motion.p 
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    className="text-xs text-[#8899aa] line-clamp-1 mb-2 break-all"
-                                  >
-                                    {item.analysis}
-                                  </motion.p>
-                                )}
-                              </AnimatePresence>
+                              {/* Row 2: Verdict (Primary label) */}
+                              <div className={cn(
+                                "text-sm font-bold leading-relaxed transition-all",
+                                item.verdictType === 'buy' ? "text-[#00e676]" : item.verdictType === 'sell' ? "text-[#ff5252]" : "text-[#ffd740]",
+                                isExpanded ? "" : "line-clamp-2"
+                              )}>
+                                {item.verdict}
+                              </div>
                               
-                              <div className="text-[10px] text-[#556677]">{item.time}</div>
+                              {/* Row 3: Footer (Time & Price Preview) */}
+                              {!isExpanded && (
+                                <div className="flex items-end justify-between pt-1 border-t border-[#1e3050]/30">
+                                   <div className="text-[10px] text-[#556677]">{item.time}</div>
+                                   <div className="text-right">
+                                     <span className="text-[9px] text-[#556677] block leading-tight">建議買價</span>
+                                     <span className="text-[11px] font-mono font-bold text-[#00e5ff] truncate max-w-[120px] block">
+                                       {item.buyPrice}
+                                     </span>
+                                   </div>
+                                </div>
+                              )}
+                              
+                              {isExpanded && (
+                                <div className="text-[10px] text-[#556677] pt-1">{item.time}</div>
+                              )}
                            </div>
                            
-                           <div className="flex items-center gap-2 shrink-0 self-center">
-                             <div className="text-right">
-                               <div className="text-[10px] text-[#556677] mb-0.5">預計買價</div>
-                               <div className="text-xs font-mono font-bold text-[#00e5ff] max-w-[80px] truncate">
-                                 {item.buyPrice}
-                               </div>
-                             </div>
-                             <motion.div
-                                animate={{ rotate: isExpanded ? 90 : 0 }}
-                                className="text-[#556677]"
-                             >
-                                <ChevronRight size={18} />
-                             </motion.div>
-                           </div>
+                           <motion.div
+                              animate={{ rotate: isExpanded ? 90 : 0 }}
+                              className="text-[#556677] self-center shrink-0"
+                           >
+                              <ChevronRight size={20} />
+                           </motion.div>
                         </div>
 
                         <AnimatePresence>
