@@ -337,30 +337,42 @@ export default function App() {
                         )}
                       >
                         <div 
-                          className="p-4 flex items-center justify-between cursor-pointer active:bg-white/5"
+                          className="p-4 flex items-start justify-between cursor-pointer active:bg-white/5 transition-colors gap-3"
                           onClick={() => setExpandedId(isExpanded ? null : item.id)}
                         >
-                           <div className="space-y-1 flex-1 min-w-0 pr-4">
-                              <div className="flex items-center gap-2 mb-1">
-                                 <span className="text-[10px] font-mono text-[#00e5ff] bg-[#00e5ff12] border border-[#00e5ff33] px-2 py-0.5 rounded">
+                           <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 mb-2">
+                                 <span className="text-[10px] font-mono text-[#00e5ff] bg-[#00e5ff12] border border-[#00e5ff33] px-2 py-0.5 rounded shrink-0">
                                    {item.stockCode || '---'} {item.stockName}
                                  </span>
                                  <span className={cn(
-                                   "text-xs font-bold",
+                                   "text-xs font-bold shrink-0",
                                    item.verdictType === 'buy' ? "text-[#00e676]" : item.verdictType === 'sell' ? "text-[#ff5252]" : "text-[#ffd740]"
                                  )}>
                                    {item.verdict}
                                  </span>
                               </div>
-                              <p className={cn("text-xs text-[#8899aa] transition-all", isExpanded ? "opacity-0 h-0 overflow-hidden" : "line-clamp-1")}>
-                                {item.analysis}
-                              </p>
+                              
+                              <AnimatePresence mode="wait">
+                                {!isExpanded && (
+                                  <motion.p 
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="text-xs text-[#8899aa] line-clamp-1 mb-2 break-all"
+                                  >
+                                    {item.analysis}
+                                  </motion.p>
+                                )}
+                              </AnimatePresence>
+                              
                               <div className="text-[10px] text-[#556677]">{item.time}</div>
                            </div>
-                           <div className="flex items-center gap-2">
-                             <div className="text-right mr-2">
+                           
+                           <div className="flex items-center gap-2 shrink-0 self-center">
+                             <div className="text-right">
                                <div className="text-[10px] text-[#556677] mb-0.5">預計買價</div>
-                               <div className="text-xs font-mono font-bold text-[#00e5ff]">
+                               <div className="text-xs font-mono font-bold text-[#00e5ff] max-w-[80px] truncate">
                                  {item.buyPrice}
                                </div>
                              </div>
@@ -379,12 +391,25 @@ export default function App() {
                               initial={{ height: 0, opacity: 0 }}
                               animate={{ height: 'auto', opacity: 1 }}
                               exit={{ height: 0, opacity: 0 }}
-                              className="overflow-hidden bg-[#0d1525]/30 border-t border-[#1e3050]"
+                              className="overflow-hidden bg-[#0d1525]/50 border-t border-[#1e3050]"
                             >
                               <div className="p-4 space-y-4">
-                                <div className="space-y-2">
+                                <div className="space-y-3">
                                   <div className="text-[10px] text-[#00e5ff] font-bold uppercase tracking-wider">AI 分析觀點</div>
-                                  <p className="text-sm leading-relaxed text-[#e8eaf0]">{item.analysis}</p>
+                                  <p className="text-sm leading-relaxed text-[#e8eaf0] whitespace-pre-wrap">{item.analysis}</p>
+                                  
+                                  <div className="pt-3 border-t border-[#1e3050]/50">
+                                    <div className="text-[10px] text-[#00e5ff] font-bold uppercase tracking-wider mb-2">建議進場細節</div>
+                                    <div className="bg-[#1c2840] p-3 rounded-xl border border-[#00e5ff20]">
+                                      <div className="flex flex-col gap-1">
+                                        <div className="text-[10px] text-[#8899aa]">建議買價 / 進場策略</div>
+                                        <div className="text-sm font-bold text-[#00e5ff] leading-relaxed break-words">
+                                          {item.buyPrice}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+
                                   {item.warning && (
                                     <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-xs text-red-300 flex gap-2">
                                       <span>⚠️</span> {item.warning}
