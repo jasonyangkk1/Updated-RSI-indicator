@@ -32,6 +32,7 @@ export default function App() {
   const [analysisResult, setAnalysisResult] = useState<StockAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [marketData, setMarketData] = useState<MarketData | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Load history on mount
   useEffect(() => {
@@ -322,39 +323,113 @@ export default function App() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {history.map((item) => (
-                    <motion.div 
-                      key={item.id}
-                      layout
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="bg-[#131c2e] border border-[#1e3050] rounded-xl overflow-hidden group"
-                    >
-                      <div className="p-4 flex items-center justify-between">
-                         <div className="space-y-1 flex-1 min-w-0 pr-4">
-                            <div className="flex items-center gap-2 mb-1">
-                               <span className="text-xs font-mono text-[#00e5ff] bg-[#00e5ff12] border border-[#00e5ff33] px-2 py-0.5 rounded">
-                                 {item.stockCode || '---'} {item.stockName}
-                               </span>
-                               <span className={cn(
-                                 "text-xs font-bold",
-                                 item.verdictType === 'buy' ? "text-[#00e676]" : item.verdictType === 'sell' ? "text-[#ff5252]" : "text-[#ffd740]"
-                               )}>
-                                 {item.verdict}
-                               </span>
-                            </div>
-                            <p className="text-xs text-[#8899aa] line-clamp-1">{item.analysis}</p>
-                            <div className="text-[10px] text-[#556677]">{item.time}</div>
-                         </div>
-                         <div className="flex flex-col items-end gap-2 shrink-0">
-                           <div className="text-xs font-mono font-bold text-[#00e5ff]">
-                             買價: {item.buyPrice}
+                  {history.map((item) => {
+                    const isExpanded = expandedId === item.id;
+                    return (
+                      <motion.div 
+                        key={item.id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className={cn(
+                          "bg-[#131c2e] border border-[#1e3050] rounded-xl overflow-hidden transition-all duration-300",
+                          isExpanded ? "ring-1 ring-[#00e5ff] shadow-[0_0_15px_rgba(0,229,255,0.1)]" : ""
+                        )}
+                      >
+                        <div 
+                          className="p-4 flex items-center justify-between cursor-pointer active:bg-white/5"
+                          onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                        >
+                           <div className="space-y-1 flex-1 min-w-0 pr-4">
+                              <div className="flex items-center gap-2 mb-1">
+                                 <span className="text-[10px] font-mono text-[#00e5ff] bg-[#00e5ff12] border border-[#00e5ff33] px-2 py-0.5 rounded">
+                                   {item.stockCode || '---'} {item.stockName}
+                                 </span>
+                                 <span className={cn(
+                                   "text-xs font-bold",
+                                   item.verdictType === 'buy' ? "text-[#00e676]" : item.verdictType === 'sell' ? "text-[#ff5252]" : "text-[#ffd740]"
+                                 )}>
+                                   {item.verdict}
+                                 </span>
+                              </div>
+                              <p className={cn("text-xs text-[#8899aa] transition-all", isExpanded ? "opacity-0 h-0 overflow-hidden" : "line-clamp-1")}>
+                                {item.analysis}
+                              </p>
+                              <div className="text-[10px] text-[#556677]">{item.time}</div>
                            </div>
-                           <ChevronRight size={16} className="text-[#556677] group-hover:translate-x-1 transition-transform" />
-                         </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                           <div className="flex items-center gap-2">
+                             <div className="text-right mr-2">
+                               <div className="text-[10px] text-[#556677] mb-0.5">預計買價</div>
+                               <div className="text-xs font-mono font-bold text-[#00e5ff]">
+                                 {item.buyPrice}
+                               </div>
+                             </div>
+                             <motion.div
+                                animate={{ rotate: isExpanded ? 90 : 0 }}
+                                className="text-[#556677]"
+                             >
+                                <ChevronRight size={18} />
+                             </motion.div>
+                           </div>
+                        </div>
+
+                        <AnimatePresence>
+                          {isExpanded && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              className="overflow-hidden bg-[#0d1525]/30 border-t border-[#1e3050]"
+                            >
+                              <div className="p-4 space-y-4">
+                                <div className="space-y-2">
+                                  <div className="text-[10px] text-[#00e5ff] font-bold uppercase tracking-wider">AI 分析觀點</div>
+                                  <p className="text-sm leading-relaxed text-[#e8eaf0]">{item.analysis}</p>
+                                  {item.warning && (
+                                    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-xs text-red-300 flex gap-2">
+                                      <span>⚠️</span> {item.warning}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div className="bg-[#1c2840] p-2 rounded-lg text-center">
+                                    <div className="text-[9px] text-[#8899aa] mb-1">ROC</div>
+                                    <div className="text-[#00e5ff] font-mono font-bold text-xs">{item.roc}</div>
+                                    <div className="text-[9px] text-[#556677]">{item.rocStatus}</div>
+                                  </div>
+                                  <div className="bg-[#1c2840] p-2 rounded-lg text-center">
+                                    <div className="text-[9px] text-[#8899aa] mb-1">RSI</div>
+                                    <div className="text-[#00e5ff] font-mono font-bold text-xs">{item.rsi}</div>
+                                    <div className="text-[9px] text-[#556677]">{item.rsiStatus}</div>
+                                  </div>
+                                  <div className="bg-[#1c2840] p-2 rounded-lg text-center">
+                                    <div className="text-[9px] text-[#8899aa] mb-1">OBV</div>
+                                    <div className="text-[#00e5ff] font-mono font-bold text-xs">{item.obvStatus}</div>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#1e3050]/50">
+                                  <div className="text-center">
+                                    <div className="text-[9px] text-[#8899aa]">支撐位</div>
+                                    <div className="text-[#00e676] font-mono font-bold text-sm">{item.support}</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-[9px] text-[#00e5ff]">建議買價</div>
+                                    <div className="text-[#00e5ff] font-mono font-bold text-sm">{item.buyPrice}</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-[9px] text-[#8899aa]">壓力位</div>
+                                    <div className="text-[#ff5252] font-mono font-bold text-sm">{item.resist}</div>
+                                  </div>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               )}
             </motion.div>
