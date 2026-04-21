@@ -29,6 +29,7 @@ export default function App() {
   const [history, setHistory] = useState<StockAnalysis[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<StockAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [marketData, setMarketData] = useState<MarketData | null>(null);
@@ -39,7 +40,9 @@ export default function App() {
     const saved = localStorage.getItem('stock_analyzer_history');
     if (saved) {
       try {
-        setHistory(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        // Clean up old invalid items or those with massive base64 if accidentally stored
+        setHistory(Array.isArray(parsed) ? parsed : []);
       } catch (e) {
         console.error("Failed to load history", e);
       }
@@ -47,10 +50,26 @@ export default function App() {
     refreshMarketData();
   }, []);
 
-  // Save history when it changes
+  // Save history when it changes (with error catching)
   useEffect(() => {
-    localStorage.setItem('stock_analyzer_history', JSON.stringify(history));
+    try {
+      // Create a copy without the images to save space in localStorage if images are too large
+      // But for now, we'll just try to save and handle error
+      localStorage.setItem('stock_analyzer_history', JSON.stringify(history));
+    } catch (e) {
+      console.warn("History too large for localStorage, clearing oldest item");
+      if (history.length > 0) {
+        setHistory(prev => prev.slice(0, prev.length - 1));
+      }
+    }
   }, [history]);
+
+  // Clean up preview URL
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   const refreshMarketData = () => {
     const newData: MarketData = {
@@ -66,21 +85,74 @@ export default function App() {
     setMarketData(newData);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Max size 1024px for Gemini while keeping aspect ratio
+          const MAX_SIZE = 1024;
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Quality 0.7 is plenty for technical analysis
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setSelectedImage(ev.target?.result as string);
-      setAnalysisResult(null);
-      setError(null);
-    };
-    reader.readAsDataURL(file);
+    setError(null);
+    setAnalysisResult(null);
+
+    // Immediate preview using blob URL (fast, memory efficient)
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    const newPreview = URL.createObjectURL(file);
+    setPreviewUrl(newPreview);
+
+    try {
+      // Background compression
+      const compressed = await compressImage(file);
+      setSelectedImage(compressed);
+    } catch (err) {
+      console.error("Compression failed", err);
+      // Fallback: use simple reader if compression fails
+      const reader = new FileReader();
+      reader.onload = (ev) => setSelectedImage(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    }
   };
 
   const runAnalysis = async () => {
-    if (!selectedImage) return;
+    if (!selectedImage) {
+      setError("請先上傳圖片。");
+      return;
+    }
     setIsAnalyzing(true);
     setError(null);
 
@@ -123,11 +195,14 @@ export default function App() {
         }
       });
 
+      if (!response.text) throw new Error("AI 未能返回分析結果。");
+      
       const result = JSON.parse(response.text) as StockAnalysis;
       const completeResult = {
         ...result,
         id: crypto.randomUUID(),
         time: new Date().toLocaleString('zh-TW'),
+        // Store the compressed version in history to save space
         imageUrl: selectedImage
       };
 
@@ -140,6 +215,7 @@ export default function App() {
       });
 
     } catch (err: any) {
+      console.error("Analysis error:", err);
       setError(err.message || '分析中發生錯誤，請稍後再試。');
     } finally {
       setIsAnalyzing(false);
@@ -174,7 +250,7 @@ export default function App() {
               exit={{ opacity: 0, scale: 0.98 }}
               className="space-y-4"
             >
-              {!selectedImage ? (
+              {!previewUrl ? (
                 <div 
                   className="relative group cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed border-[#00e5ff] bg-[#00e5ff08] hover:bg-[#00e5ff12] transition-all duration-300"
                 >
@@ -193,9 +269,18 @@ export default function App() {
               ) : (
                 <div className="space-y-4">
                   <div className="relative rounded-2xl overflow-hidden border border-[#1e3050] bg-[#111827]">
-                    <img src={selectedImage} alt="Preview" className="w-full max-h-[300px] object-contain" />
+                    <img src={previewUrl} alt="Preview" className={cn("w-full max-h-[300px] object-contain transition-opacity duration-300", !selectedImage ? "opacity-50 blur-sm" : "opacity-100")} />
+                    {!selectedImage && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <RefreshCcw className="animate-spin text-[#00e5ff]" size={24} />
+                      </div>
+                    )}
                     <button 
-                      onClick={() => setSelectedImage(null)}
+                      onClick={() => {
+                        setSelectedImage(null);
+                        setPreviewUrl(null);
+                        setAnalysisResult(null);
+                      }}
                       className="absolute top-3 right-3 bg-black/60 backdrop-blur-md p-2 rounded-full hover:bg-black/80 transition-colors"
                     >
                       <Trash2 size={16} />
@@ -204,10 +289,15 @@ export default function App() {
                   
                   <button 
                     onClick={runAnalysis}
-                    disabled={isAnalyzing}
+                    disabled={isAnalyzing || !selectedImage}
                     className="w-full bg-gradient-to-br from-[#00e5ff] to-[#00b0cc] text-[#0a0e1a] font-bold py-4 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98] transition-all"
                   >
-                    {isAnalyzing ? (
+                    {!selectedImage ? (
+                      <>
+                        <RefreshCcw className="animate-spin" size={20} />
+                        準備中...
+                      </>
+                    ) : isAnalyzing ? (
                       <>
                         <RefreshCcw className="animate-spin" size={20} />
                         分析中...
